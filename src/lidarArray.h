@@ -3,7 +3,7 @@
 
 #include <Wire.h>
 #include <VL53L0X.h>
-#include <vector>
+#include "Vector.h"
 
 class LidarArray {
 public:
@@ -22,10 +22,10 @@ public:
 private:
     uint8_t numPCF;
     uint8_t numSensors;
-    std::vector<VL53L0X> sensors;
-    std::vector<std::vector<uint8_t>> xshutPins;
-    std::vector<uint8_t> pcf8574Addresses;
-    std::vector<uint8_t> pcf8574States;
+    Vector<VL53L0X> sensors;
+    Vector<Vector<uint8_t>> xshutPins;
+    Vector<uint8_t> pcf8574Addresses;
+    Vector<uint8_t> pcf8574States;
 
     int LidarMeasurementTimingBudget = 20000;
     int LidarPulsePeriodPreRange = 8;

@@ -1,19 +1,30 @@
-##############################################################
+#######################################
 # Syntax Coloring Map for LidarArray Library
-##############################################################
+#######################################
 
 #######################################
 # Datatypes (KEYWORD1)
 #######################################
-LidarArray	KEYWORD1
+LidarArray  KEYWORD1
+Vector      KEYWORD1
 
 #######################################
 # Methods and Functions (KEYWORD2)
 #######################################
-initSensors	KEYWORD2
-readSensor	KEYWORD2
-readSensorNB	KEYWORD2
-getSensor	KEYWORD2
-setMeasurementTimingBudget	KEYWORD2
-setVcselPulsePeriod	KEYWORD2
-getSensorCount	KEYWORD2
+initSensors                 KEYWORD2
+readSensor                  KEYWORD2
+readSensorNB                KEYWORD2
+getSensor                   KEYWORD2
+setMeasurementTimingBudget  KEYWORD2
+setVcselPulsePeriod         KEYWORD2
+getSensorCount              KEYWORD2
+resize                      KEYWORD2
+push_back                   KEYWORD2
+at                          KEYWORD2
+operator[]                  KEYWORD2
+begin                       KEYWORD2
+end                         KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
