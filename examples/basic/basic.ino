@@ -1,4 +1,4 @@
-#include "LidarArray.h"
+#include <LidarArray.h>
 
 uint8_t pcf8574Addresses[] = {0x20}; // Endereços I2C dos PCF8574
 uint8_t xshutPins[1][8] = {
