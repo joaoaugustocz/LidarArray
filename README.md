@@ -5,7 +5,7 @@ LidarArray is an Arduino library designed to manage multiple VL53L0X LiDAR senso
 ## Installation
 To use the LidarArray library in your Arduino projects:
 
-1. Download the LidarArray library from the [GitHub repository](https://github.com/yourusername/LidarArray/releases) as a ZIP file.
+1. Download the LidarArray library from the [GitHub repository](https://github.com/joaoaugustocz/LidarArray) as a ZIP file.
 2. Install the library in the Arduino IDE by navigating to Sketch -> Include Library -> Add .ZIP Library... and selecting the downloaded ZIP file.
 3. Open the LidarArray example sketches from File -> Examples -> LidarArray to get started with using the library.
 
@@ -182,7 +182,7 @@ LidarArray é uma biblioteca para Arduino projetada para gerenciar múltiplos se
 ## Instalação
 Para utilizar a biblioteca LidarArray nos seus projetos Arduino:
 
-1. Baixe a biblioteca LidarArray do [repositório GitHub](https://github.com/yourusername/LidarArray/releases) como um arquivo ZIP.
+1. Baixe a biblioteca LidarArray do [repositório GitHub](https://github.com/joaoaugustocz/LidarArray) como um arquivo ZIP.
 2. Instale a biblioteca no Arduino IDE navegando em Sketch -> Incluir Biblioteca -> Adicionar Biblioteca .ZIP... e selecione o arquivo ZIP baixado.
 3. Abra os exemplos da LidarArray em Arquivo -> Exemplos -> LidarArray para começar a utilizar a biblioteca.
 
