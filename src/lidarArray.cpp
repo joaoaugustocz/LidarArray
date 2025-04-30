@@ -1,4 +1,7 @@
 #include "LidarArray.h"
+#include "I2CScanner.h"
+
+I2CScanner scannerr;
 
 LidarArray::LidarArray(uint8_t numPCF, uint8_t numSensors, const uint8_t pcf8574Addresses[], const uint8_t xshutPins[][8]) 
 {
@@ -28,33 +31,48 @@ bool LidarArray::initSensors()
     {
         for (uint8_t j = 0; j < 8; j++) 
         {
-            pcf8574Write(i, xshutPins[i][j], 0);
+            pcf8574Write(i, j, 0);
         }
     }
-    delay(100);
+    
+    delay(10);
+    
     for (uint8_t i = 0; i < numPCF; i++) 
     {
         for (uint8_t j = 0; j < 8; j++) 
         {
-            pcf8574Write(i, xshutPins[i][j], 1);
-            delay(10);
-            sensors[i * 8 + j].setAddress(0x30 + i * 8 + j);
+            int pinoXshutAt = xshutPins[i][j];
+            int enderecoAt = 0x30 + (i * 8) + j;
+            int numSensorAt = i * 8 + j;
+
+            pcf8574Write(i, pinoXshutAt, 1);
+            delay(50);  // tem que ver se funciona com 50ms antes tava 100 ms
+            
+            sensors[numSensorAt].setAddress(enderecoAt);
         }
+    }
+
+    scannerr.Scan();
+
+    for (uint8_t i = 0; i < numPCF; i++) 
+    {
         for (uint8_t j = 0; j < 8; j++) 
         {
-            if (!sensors[i * 8 + j].init()) 
+            int numSensorAt = (i * 8) + j;
+            
+            if (sensors[numSensorAt].init()) 
             {
-                Serial.print("Falha ao inicializar o sensor ");
-                Serial.println(i * 8 + j + 1);
-            } else 
+                sensors[numSensorAt].setMeasurementTimingBudget(LidarMeasurementTimingBudget);
+                sensors[numSensorAt].startContinuous();
+            }
+            else 
             {
-                sensors[i * 8 + j].setMeasurementTimingBudget(LidarMeasurementTimingBudget);
-                sensors[i * 8 + j].startContinuous();
-                Serial.print("Iniciou o sensor ");
-                Serial.println(i * 8 + j + 1);
+                Serial.print("Failed sensor ");
+                Serial.println(numSensorAt);
             }
         }
     }
+    
     return true;
 }
 
