@@ -3,7 +3,7 @@
 
 uint8_t pcf8574Addresses[] = {0x20}; // Endereços I2C dos PCF8574
 uint8_t xshutPins[1][8] = {
-    {0, 1, 2, 3, 4, 5, 6, 8} // Pinos XSHUT no PCF8574 no endereço 0x20
+    {0, 1, 2, 3, 4, 5, 6, 7} // Pinos XSHUT no PCF8574 no endereço 0x20
 };
 
 LidarArray lidar(1, 8, pcf8574Addresses, xshutPins);
