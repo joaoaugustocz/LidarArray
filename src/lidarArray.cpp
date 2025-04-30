@@ -46,7 +46,7 @@ bool LidarArray::initSensors()
             int numSensorAt = i * 8 + j;
 
             pcf8574Write(i, pinoXshutAt, 1);
-            delay(50);  // tem que ver se funciona com 50ms antes tava 100 ms
+            delay(50);
             
             sensors[numSensorAt].setAddress(enderecoAt);
         }
