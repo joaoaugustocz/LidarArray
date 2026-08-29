@@ -218,7 +218,8 @@ LidarArray::LidarArray(LidarSensorModel model)
 LidarArray::LidarArray(const LidarArrayConfig &config)
 {
     resetMembers();
-    config_ = LidarArrayConfig::defaults(config.model);
+    // Safe defaults live in the LidarArrayConfig member initializers, so a
+    // hand-built configuration already carries them before it arrives here.
     config_ = config;
 }
 
@@ -260,7 +261,7 @@ void LidarArray::resetMembers()
     model_ = LidarSensorModel::VL53L0X;
     wire_ = &Wire;
 
-    timeoutMs_ = 0;
+    timeoutMs_ = 100;
     shutdownDelayMs_ = 5;
     wakeDelayMs_ = 5;
 
@@ -1459,6 +1460,39 @@ bool LidarArray::initializeSensor(uint8_t sensorIndex)
     return ready;
 }
 
+uint16_t LidarArray::resolveEffectiveTimeoutMs() const
+{
+    if (timeoutMs_ > 0)
+    {
+        return timeoutMs_;
+    }
+
+    // A zero timeout makes the Pololu drivers spin forever on an unresponsive sensor,
+    // both while ranging and inside init(). Derive a bounded timeout from the longest
+    // configured measurement period instead.
+    uint32_t measurementPeriodMs = 0;
+    if (vl53l0xSensorCount_ > 0)
+    {
+        measurementPeriodMs = vl53l0xMeasurementTimingBudgetUs_ / 1000UL;
+    }
+    if (vl53l4cdSensorCount_ > 0 && vl53l4cdTimingBudgetMs_ > measurementPeriodMs)
+    {
+        measurementPeriodMs = vl53l4cdTimingBudgetMs_;
+    }
+
+    const uint32_t derivedTimeoutMs = (measurementPeriodMs * 2UL) + 50UL;
+    if (derivedTimeoutMs < kMinimumAutoTimeoutMs)
+    {
+        return kMinimumAutoTimeoutMs;
+    }
+    if (derivedTimeoutMs > kMaximumAutoTimeoutMs)
+    {
+        return kMaximumAutoTimeoutMs;
+    }
+
+    return static_cast<uint16_t>(derivedTimeoutMs);
+}
+
 bool LidarArray::initializeVL53L0X(uint8_t sensorIndex, uint8_t address)
 {
     VL53L0X *sensorPointer = getVL53L0XSensor(sensorIndex);
@@ -1467,9 +1501,11 @@ bool LidarArray::initializeVL53L0X(uint8_t sensorIndex, uint8_t address)
         return false;
     }
 
+    const uint16_t effectiveTimeoutMs = resolveEffectiveTimeoutMs();
+
     VL53L0X &sensor = *sensorPointer;
     sensor.setBus(wire_);
-    sensor.setTimeout(timeoutMs_);
+    sensor.setTimeout(effectiveTimeoutMs);
 
     if (!sensor.init())
     {
@@ -1477,7 +1513,7 @@ bool LidarArray::initializeVL53L0X(uint8_t sensorIndex, uint8_t address)
     }
 
     sensor.setAddress(address);
-    sensor.setTimeout(timeoutMs_);
+    sensor.setTimeout(effectiveTimeoutMs);
 
     if (!sensor.setMeasurementTimingBudget(vl53l0xMeasurementTimingBudgetUs_))
     {
@@ -1508,9 +1544,11 @@ bool LidarArray::initializeVL53L4CD(uint8_t sensorIndex, uint8_t address)
         return false;
     }
 
+    const uint16_t effectiveTimeoutMs = resolveEffectiveTimeoutMs();
+
     VL53L4CD &sensor = *sensorPointer;
     sensor.setBus(wire_);
-    sensor.setTimeout(timeoutMs_);
+    sensor.setTimeout(effectiveTimeoutMs);
 
     if (!sensor.init())
     {
@@ -1518,7 +1556,7 @@ bool LidarArray::initializeVL53L4CD(uint8_t sensorIndex, uint8_t address)
     }
 
     sensor.setAddress(address);
-    sensor.setTimeout(timeoutMs_);
+    sensor.setTimeout(effectiveTimeoutMs);
 
     if (!sensor.setRangeTiming(vl53l4cdTimingBudgetMs_, vl53l4cdInterMeasurementMs_))
     {
@@ -1623,6 +1661,11 @@ LidarFilterConfig LidarArray::sanitizeFilterConfig(const LidarFilterConfig &conf
         sanitized.maxHeldReads = 0;
     }
 
+    if (sanitized.maxJumpMm > 0 && sanitized.maxJumpRejections == 0)
+    {
+        sanitized.maxJumpRejections = 1;
+    }
+
     return sanitized;
 }
 
@@ -1634,6 +1677,19 @@ void LidarArray::resetFilterState(uint8_t sensorIndex)
     }
 
     filterStates_[sensorIndex] = SensorFilterState();
+}
+
+void LidarArray::resyncFilterState(uint8_t sensorIndex, uint16_t value)
+{
+    if (filterStates_ == nullptr || sensorIndex >= filterStorageCount_)
+    {
+        return;
+    }
+
+    filterStates_[sensorIndex] = SensorFilterState();
+    filterStates_[sensorIndex].lastFilteredValue = value;
+    filterStates_[sensorIndex].hasLastFilteredValue = true;
+    appendValidFilterSample(sensorIndex, value);
 }
 
 uint16_t LidarArray::medianFromSamples(const uint16_t *samples, uint8_t count) const
@@ -1772,6 +1828,19 @@ LidarFilteredReading LidarArray::applyFilterPipeline(uint8_t sensorIndex, const 
 
         if (jumpMm > config.maxJumpMm)
         {
+            if (state.rejectedReads >= config.maxJumpRejections)
+            {
+                // The rejection budget is spent, so the new distance level is real.
+                // Without this the filter would keep measuring every future sample
+                // against a stale value and reject all of them forever.
+                resyncFilterState(sensorIndex, raw.distanceMm);
+                filtered.distanceMm = raw.distanceMm;
+                filtered.valid = true;
+                filtered.jumpResynced = true;
+                return filtered;
+            }
+
+            ++state.rejectedReads;
             filtered.jumpRejected = true;
 
             if (config.holdLastValid &&
@@ -1804,6 +1873,7 @@ LidarFilteredReading LidarArray::applyFilterPipeline(uint8_t sensorIndex, const 
     state.lastFilteredValue = finalValue;
     state.hasLastFilteredValue = true;
     state.heldReads = 0;
+    state.rejectedReads = 0;
 
     filtered.distanceMm = finalValue;
     filtered.valid = true;

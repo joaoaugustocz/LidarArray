@@ -132,6 +132,12 @@ struct LidarFilterConfig
     uint8_t maxHeldReads = 2;
     /// Reject changes larger than this threshold in millimeters. Use 0 to disable jump rejection.
     uint16_t maxJumpMm = 0;
+    /// Maximum number of consecutive samples the max-jump rule may reject before the
+    /// filter accepts the new distance level and re-acquires it.
+    /// A value of 0 is coerced to 1 while jump rejection is active, so the filter can
+    /// never stay locked on a stale value after the real distance changes.
+    /// Keep this less than or equal to maxHeldReads to avoid invalid outputs during the transition.
+    uint8_t maxJumpRejections = 2;
 
     /**
      * @brief Build a disabled filter configuration.
@@ -141,6 +147,7 @@ struct LidarFilterConfig
     /**
      * @brief Build the recommended starting filter configuration.
      * @return Enabled median(3) + EMA(50%) + hold-last-valid defaults.
+     * @note Jump rejection stays disabled. Set maxJumpMm to enable it.
      */
     static LidarFilterConfig recommended();
 };
@@ -162,6 +169,8 @@ struct LidarFilteredReading
     bool heldLastValid = false;
     /// True when the current sample was rejected by the max-jump rule.
     bool jumpRejected = false;
+    /// True when the filter re-acquired a new distance level after repeated jump rejections.
+    bool jumpResynced = false;
 };
 
 /**
@@ -182,7 +191,9 @@ struct LidarArrayConfig
     /// I2C bus used by the library. The sketch must still call Wire.begin().
     TwoWire *wire = &Wire;
     /// Timeout forwarded to the Pololu sensor drivers.
-    uint16_t timeoutMs = 0;
+    /// A value of 0 makes the drivers block forever on an unresponsive sensor, so the
+    /// library replaces 0 with a timeout derived from the configured measurement period.
+    uint16_t timeoutMs = 100;
     /// Delay after forcing all sensors into shutdown.
     uint16_t shutdownDelayMs = 5;
     /// Delay after enabling one sensor before initialization.
@@ -753,6 +764,8 @@ private:
     static constexpr uint8_t kLibraryStatusInvalidIndex = 0xFD;
     static constexpr uint8_t kLibraryStatusNotReady = 0xFE;
     static constexpr uint8_t kLibraryStatusTimeout = 0xFF;
+    static constexpr uint16_t kMinimumAutoTimeoutMs = 100;
+    static constexpr uint16_t kMaximumAutoTimeoutMs = 1000;
 
     struct SensorFilterState
     {
@@ -762,6 +775,7 @@ private:
         uint16_t lastFilteredValue = 0;
         bool hasLastFilteredValue = false;
         uint8_t heldReads = 0;
+        uint8_t rejectedReads = 0;
     };
 
     uint8_t numPCF_;
@@ -827,6 +841,8 @@ private:
     bool bringSensorOutOfShutdown(uint8_t sensorIndex);
     bool initializeSensor(uint8_t sensorIndex);
 
+    uint16_t resolveEffectiveTimeoutMs() const;
+
     bool initializeVL53L0X(uint8_t sensorIndex, uint8_t address);
     bool initializeVL53L4CD(uint8_t sensorIndex, uint8_t address);
 
@@ -842,6 +858,7 @@ private:
     uint16_t applyLegacyReadBehavior(const LidarReading &reading) const;
     static LidarFilterConfig sanitizeFilterConfig(const LidarFilterConfig &config);
     void resetFilterState(uint8_t sensorIndex);
+    void resyncFilterState(uint8_t sensorIndex, uint16_t value);
     uint16_t medianFromSamples(const uint16_t *samples, uint8_t count) const;
     uint16_t computeMedianCandidate(uint8_t sensorIndex, uint16_t sample, uint8_t window) const;
     void appendValidFilterSample(uint8_t sensorIndex, uint16_t sample);

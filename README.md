@@ -269,6 +269,7 @@ Main filter features:
 - EMA smoothing through `emaAlphaPercent`
 - hold-last-valid for invalid reads
 - jump rejection through `maxJumpMm`
+- bounded jump rejection through `maxJumpRejections`
 - optional per-sensor overrides with `setSensorFilterConfig(...)`
 
 Recommended starting point for a moving robot:
@@ -278,6 +279,15 @@ Recommended starting point for a moving robot:
 - `emaAlphaPercent = 50`
 - `holdLastValid = true`
 - `maxHeldReads = 2`
+- `maxJumpRejections = 2`
+
+When jump rejection is active, `maxJumpRejections` bounds how many consecutive samples the
+rule may reject. Once that budget is spent, the filter treats the new distance as real,
+re-acquires it, and reports `jumpResynced = true` on that reading. This is what keeps a real
+distance change, such as a robot turning to face a further wall, from silently disabling a
+sensor. A value of `0` is coerced to `1` while `maxJumpMm > 0`, so the filter can never stay
+locked on a stale value. Keep `maxJumpRejections` less than or equal to `maxHeldReads` to
+avoid invalid outputs during the transition.
 
 Filtered APIs:
 
@@ -308,7 +318,7 @@ Filtered APIs:
 - `getSensor()` is only for `VL53L0X` compatibility and only makes sense for `VL53L0X` slots.
 - `readSensor()` and `readSensorNB()` may apply legacy fallback and clamp behavior when legacy mode is active.
 - Filtered reads are optional and do not change the raw behavior of `readSensor()`, `readSensorNB()`, or `readReading()`.
-- `Vector.h` remains in the repository, but the library no longer depends on it internally.
+- `timeoutMs` defaults to `100` for both models. A value of `0` would make the underlying driver block forever on an unresponsive sensor, so the library replaces `0` with a timeout derived from the configured measurement period, bounded to `100..1000` ms.
 - Seeing `0x29` before initialization is normal if a ToF sensor is already awake.
 - `status = 254` indicates a library-side not-ready or unavailable condition.
 - Partial initialization does not prevent ready sensors from being used.
@@ -696,6 +706,7 @@ Principais recursos do filtro:
 - suavizacao EMA por `emaAlphaPercent`
 - hold-last-valid para leituras invalidas
 - rejeicao de salto com `maxJumpMm`
+- rejeicao de salto limitada por `maxJumpRejections`
 - override por sensor com `setSensorFilterConfig(...)`
 
 Ponto de partida recomendado para um robo em movimento:
@@ -705,6 +716,15 @@ Ponto de partida recomendado para um robo em movimento:
 - `emaAlphaPercent = 50`
 - `holdLastValid = true`
 - `maxHeldReads = 2`
+- `maxJumpRejections = 2`
+
+Com a rejeicao de salto ativa, `maxJumpRejections` limita quantas amostras consecutivas a regra
+pode rejeitar. Quando esse limite se esgota, o filtro assume que a nova distancia e real,
+readquire esse nivel e marca `jumpResynced = true` naquela leitura. E isso que impede que uma
+mudanca real de distancia, como o robo girando para uma parede mais distante, desative o sensor
+em silencio. O valor `0` e convertido para `1` enquanto `maxJumpMm > 0`, entao o filtro nunca
+fica preso em um valor antigo. Mantenha `maxJumpRejections` menor ou igual a `maxHeldReads` para
+evitar saidas invalidas durante a transicao.
 
 APIs filtradas:
 
@@ -735,7 +755,7 @@ APIs filtradas:
 - `getSensor()` existe apenas para compatibilidade com `VL53L0X` e so faz sentido em slots `VL53L0X`.
 - `readSensor()` e `readSensorNB()` podem aplicar fallback e clamp quando o modo legado estiver ativo.
 - As leituras filtradas sao opcionais e nao alteram o comportamento cru de `readSensor()`, `readSensorNB()` ou `readReading()`.
-- `Vector.h` continua no repositorio, mas a biblioteca nao depende mais dele internamente.
+- `timeoutMs` agora vale `100` por padrao nos dois modelos. O valor `0` faria o driver bloquear para sempre em um sensor que nao responde, entao a biblioteca troca `0` por um timeout derivado do periodo de medicao configurado, limitado a `100..1000` ms.
 - Ver `0x29` antes da inicializacao e normal se um ToF ja estiver acordado.
 - `status = 254` indica um estado interno de nao pronto ou indisponivel.
 - Inicializacao parcial nao impede o uso dos sensores que ficaram prontos.
